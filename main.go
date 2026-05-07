@@ -1,14 +1,23 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/mikelawson03/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileServerHits atomic.Int32
+	dbQueries      *database.Queries
+	platform       string
+	secret         string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -18,36 +27,61 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
-func (cfg *apiConfig) middlewareMetrics() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(200)
-		views := fmt.Sprintf("Hits: %d\n", cfg.fileServerHits.Load())
-		w.Write([]byte(views))
-	})
+func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(200)
+	views := fmt.Sprintf(`<html>
+  <body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+  </body>
+</html>`, cfg.fileServerHits.Load())
+	w.Write([]byte(views))
 }
 
-func (cfg *apiConfig) resetMetrics() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		prev := cfg.fileServerHits.Swap(0)
-		current := cfg.fileServerHits.Load()
-		resetMsg := fmt.Sprintf("Metrics counter reset.\nPrevious count: %d\nNew count:%d\n", prev, current)
-		w.Write([]byte(resetMsg))
-	})
+func (cfg *apiConfig) handlerReadiness(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Printf("Error loading .env file: %v", err)
+	}
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	apiCfg := apiConfig{
+		dbQueries: database.New(db),
+		platform:  os.Getenv("PLATFORM"),
+		secret:    os.Getenv("SECRET"),
+	}
+
 	const filepathRoot = "."
 	const port = "8080"
-
-	apiCfg := apiConfig{}
 
 	mux := http.NewServeMux()
 	fileServer := http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fileServer))
-	mux.HandleFunc("/healthz", handlerReadiness)
-	mux.Handle("/metrics/", apiCfg.middlewareMetrics())
-	mux.Handle("/reset/", apiCfg.resetMetrics())
+
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirpById)
+	mux.HandleFunc("GET /api/healthz", apiCfg.handlerReadiness)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirps)
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
+	mux.HandleFunc("POST /api/refresh", apiCfg.handlerRefresh)
+	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevoke)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
+	mux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirp)
+
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handlerResetUsers)
 
 	s := &http.Server{
 		Handler: mux,
@@ -56,10 +90,4 @@ func main() {
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(s.ListenAndServe())
-}
-
-func handlerReadiness(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write([]byte("OK"))
 }
