@@ -219,8 +219,7 @@ Optional query parameters:
 - `sort=desc`
 
 Return:
-```
-json
+```json
 [
     {"id":"<chirp id>",
     "created_at":"<created timestamp>",
@@ -258,4 +257,10 @@ Response:
 }
 ```
 
-### PUT api/user
+### DELETE /api/chirps/{chirpID}
+Delete specified chirp. Authentication required via Bearer token.
+
+Returns `204` with no body.
+
+### POST /admin/reset/
+Reset database. Removes all users, chirps, and refresh tokens from their respective tables. Requires dev environment.
