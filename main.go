@@ -18,6 +18,7 @@ type apiConfig struct {
 	dbQueries      *database.Queries
 	platform       string
 	secret         string
+	polkaKey       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -60,6 +61,7 @@ func main() {
 		dbQueries: database.New(db),
 		platform:  os.Getenv("PLATFORM"),
 		secret:    os.Getenv("SECRET"),
+		polkaKey:  os.Getenv("POLKA_KEY"),
 	}
 
 	const filepathRoot = "."
@@ -73,10 +75,11 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirpById)
 	mux.HandleFunc("GET /api/healthz", apiCfg.handlerReadiness)
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirps)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
 	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 	mux.HandleFunc("POST /api/refresh", apiCfg.handlerRefresh)
 	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevoke)
-	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerPolkaWebhooks)
 	mux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirp)
 

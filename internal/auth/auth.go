@@ -76,3 +76,16 @@ func MakeRefreshToken() string {
 	rand.Read(s)
 	return hex.EncodeToString(s)
 }
+
+func GetApiKey(headers http.Header) (string, error) {
+	key := headers.Get("Authorization")
+	if key == "" {
+		return "", errors.New("No Authorization header provided")
+	}
+	if !strings.HasPrefix(key, "No API Key found in Authorization header") {
+
+	}
+
+	key = strings.TrimPrefix(key, "ApiKey ")
+	return key, nil
+}

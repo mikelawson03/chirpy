@@ -24,6 +24,7 @@ type userResponse struct {
 	Email        string    `json:"email"`
 	Token        string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +87,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		Email:        res.Email,
 		Token:        authTok,
 		RefreshToken: refToken.Token,
+		IsChirpyRed:  res.IsChirpyRed,
 	})
 }
 
@@ -174,10 +176,11 @@ func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusCreated, userResponse{
-		ID:        res.ID,
-		CreatedAt: res.CreatedAt,
-		UpdatedAt: res.UpdatedAt,
-		Email:     res.Email,
+		ID:          res.ID,
+		CreatedAt:   res.CreatedAt,
+		UpdatedAt:   res.UpdatedAt,
+		Email:       res.Email,
+		IsChirpyRed: res.IsChirpyRed,
 	})
 
 }
@@ -242,6 +245,54 @@ func (cfg *apiConfig) handlerResetUsers(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondWithJSON(w, http.StatusOK, nil)
+}
+
+func (cfg *apiConfig) handlerPolkaWebhooks(w http.ResponseWriter, r *http.Request) {
+	type polkaEvent struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserId string `json:"user_id"`
+		} `json:"data"`
+	}
+
+	apiKey, err := auth.GetApiKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Missing API key: ", err)
+		return
+	}
+
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Incorrect API key: %v, Expected: %v", apiKey, cfg.polkaKey), nil)
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	event := polkaEvent{}
+	err = decoder.Decode(&event)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding event: ", err)
+		return
+	}
+
+	if event.Event != "user.upgraded" {
+		respondWithJSON(w, http.StatusNoContent, nil)
+		return
+	}
+
+	uid, err := uuid.Parse(event.Data.UserId)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error parsing user ID: ", err)
+		return
+	}
+
+	_, err = cfg.dbQueries.UpgradeUser(context.Background(), uid)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found: ", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, nil)
+
 }
 
 func decodeUser(r *http.Request) (*userInbound, error) {

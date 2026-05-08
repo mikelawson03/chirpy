@@ -23,3 +23,9 @@ RETURNING *;
 
 -- name: ResetUsers :exec
 DELETE FROM users;
+
+-- name: UpgradeUser :one
+UPDATE users
+SET is_chirpy_red = TRUE
+WHERE id = $1
+RETURNING *;

@@ -103,3 +103,16 @@ func TestLoginWithTokens(t *testing.T) {
 	}
 
 }
+
+func TestGetApiKey(t *testing.T) {
+	head := http.Header{}
+	head.Set("Authorization", "ApiKey f271c81ff7084ee5b99a5091b42d486e")
+	key, err := GetApiKey(head)
+	if err != nil {
+		t.Fatalf("Error retrieving key: %v", err)
+	}
+
+	if key != "f271c81ff7084ee5b99a5091b42d486e" {
+		t.Fatalf("Key does not match. Expected 'f271c81ff7084ee5b99a5091b42d486e'. Received: %v", key)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -74,10 +75,24 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	resp, err := cfg.dbQueries.GetChirps(context.Background())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Database Error: ", err)
-		return
+	var resp []database.Chirp
+	var err error
+	author_id := r.URL.Query().Get("author_id")
+	if author_id != "" {
+		uid, err := uuid.Parse(author_id)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Invalid user id: ", err)
+		}
+		resp, err = cfg.dbQueries.GetChirpsByAuthor(context.Background(), uid)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, "User ID not found: ", err)
+		}
+	} else {
+		resp, err = cfg.dbQueries.GetChirps(context.Background())
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Database Error: ", err)
+			return
+		}
 	}
 
 	chirps := []chirpResponse{}
@@ -90,6 +105,11 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			Body:      chirp.Body,
 			UserId:    chirp.UserID,
 		})
+	}
+
+	sortOrder := r.URL.Query().Get("sort")
+	if sortOrder == "desc" {
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.After(chirps[j].CreatedAt) })
 	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
