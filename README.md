@@ -1,6 +1,6 @@
 # chirpy
 
-Chirpy is an API based on Twitter than allows users to post and retrieve tweets
+Chirpy is an API based on Twitter that allows users to post and retrieve tweets. This is a project built to help me learn Go backend development. The focus areas here were REST APIs, JWT Authentication, and PostgreSQL.
 
 ## Tech Stack
 
@@ -10,6 +10,15 @@ Chirpy is an API based on Twitter than allows users to post and retrieve tweets
 - Goose
 - JWT authentication
 
+## Features
+
+- User authentication with JWTs
+- Refresh token support
+- Chirp CRUD endpoints
+- PostgreSQL persistence
+- SQL generated with sqlc
+- Goose migrations
+
 ## Getting Started
 
 ### Install Golang if needed:
@@ -17,6 +26,12 @@ Chirpy is an API based on Twitter than allows users to post and retrieve tweets
 ```
 sudo apt-get update
 sudo apt-get -y install golang-go
+```
+
+### Install Goose:
+
+```bash
+go install github.com/pressly/goose/v3/cmd/goose@latest
 ```
 
 ### Clone Chirpy repo locally:
@@ -47,7 +62,7 @@ CREATE DATABASE chirpy;
 4. Set user password:
 
 ```
-ALTER USER <username> WITH PASSWORD <password>
+ALTER USER {username} WITH PASSWORD {password}
 ```
 
 ### Set up local environment:
@@ -56,12 +71,12 @@ ALTER USER <username> WITH PASSWORD <password>
 2. Using the username and password you set when creating the database, add the database string to this file:
 
 ```
-DB_URL="postgres://<username>:<password>@localhost:5432/chirpy?ssl=disable
+DB_URL="postgres://{username}:{password}@localhost:5432/chirpy?sslmode=disable
 ```
 
 3. Create a secret string for authentication. You can either enter your own or create a random string in the command line with `openssl rand -base64 64`. Add this string to your .env file (make sure to wrap the string in quotes):
 ```
-SECRET="<secret_string>"
+SECRET="{secret_string}"
 ```
 4. To use the reset endpoint, you'll need to be using a dev environment. If you'd like to enable this, add the following to your env file as well: 
 ```PLATFORM ="dev"```
@@ -70,7 +85,7 @@ SECRET="<secret_string>"
 ### Run database Migrations:
 From the sql/schema directory, run the goose migrations (note that the database URL will be the same one you used in your .env file):
 ```
-goose "<database_url>" up
+goose "{database_url}" up
 ```
 
 ### Build Go package and run
@@ -84,183 +99,193 @@ go build && ./chirpy
 Provide access token in the Authorization header:
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer {token}
 ```
 
-### GET /api/chirps
-Return all chirps
-
-### GET /api/chirps?auth_id={user_id}
-Get all chirps from user
-
 ### GET /api/healthz
+Authentication: None
 Return OK if server is ready for requests
 
+Response: `200 OK`
+
 ### POST /api/users
+_Authentication: None_
+
 Create a new user.
 
 Request:
 ```json
 {
-    "email": "<email_address>",
-    "password": "<password>"
+    "email": "{email_address}",
+    "password": "{password}"
 }
 ```
-Response:
+Response: `201 Created`
 ```json
 {
-    "id":"<user id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<last updated timestamp>",
-    "email":"<email address>"
+    "id":"{user id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{last updated timestamp}",
+    "email":"{email address}"
 }
 ```
 
 ### PUT /api/users
-Update user information. Requires authentication via Bearer token.
+_Authentication: Access Token_
+Update user information. 
 
-Request:
+Request: `200 OK`
 ```json
 {
-    "email": "<email_address>",
-    "password": "<password>"
+    "email": "{email_address}",
+    "password": "{password}"
 }
 ```
 Response:
 ```json
 {
-    "id":"<user id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<last updated timestamp>",
-    "email":"<email address>"
+    "id":"{user id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{last updated timestamp}",
+    "email":"{email address}"
 }
 ```
 
 ### POST /api/login
-
+_Authentication: None_
 Login with specified user.
 
 Request:
 ```json
 {
-    "email": "<email_address>",
-    "password": "<password>"
+    "email": "{email_address}",
+    "password": "{password}"
 }
 ```
 
-Response:
+Response: `200 OK`
 ```json
 {
     "id":"{user_id}",
-    "created_at":"<created timestamp>",
-    "updated_at":"<last updated timestamp>",
-    "email":"<email address>",
-    "token":"<access token>",
-    "refresh_token":"<refresh_token>"}
-
+    "created_at":"{created timestamp}",
+    "updated_at":"{last updated timestamp>",
+    "email":"{email address>",
+    "token":"{access token>",
+    "refresh_token":"{refresh_token}"
+}
 ```
 
 ### POST /api/refresh
-Will return new Access token given header with valid, unexpired Refresh Token. Requires authentication via Bearer token.
+_Authentication: Refresh Token_
+Will return new Access token given header with valid, unexpired Refresh Token.
 
-Response:
-
+Response: `200 OK`
 ```json
 {
-    "token": "<access token>"
+    "token": "{access token}"
 }
 
 ```
 
 ### POST /api/revoke
-Revoke refresh token. Will revoke specified refresh token. Access token will remain active for up to 1 hour. Requires authentication via Bearer token.
+_Authentication: Access Token_
+Revoke refresh token. Will revoke specified refresh token. Access token will remain active for up to 1 hour.
 
-Will return `204` on success with no body.
+Response: `204` 
 
-### GET api/chirps/
-Returns all chirps from all users. Will return JSON on successful refresh:
+### GET /api/chirps
+_Authentication: None_
+Returns all chirps from all users. 
+
+Response: `200 OK`
 ```json
 [
-    {"id":"<chirp id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<updated timestamp>",
-    "body":"<chirp body>",
-    "user_id":"<user id>"},
+    {"id":"{chirp id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{updated timestamp}",
+    "body":"{chirp body}",
+    "user_id":"{user id}"},
 
-    {"id":"<chirp id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<updated timestamp>",
-    "body":"<chirp body>",
-    "user_id":"<user id>"}
+    {"id":"{chirp id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{updated timestamp}",
+    "body":"{chirp body}",
+    "user_id":"{user id}"}
     
     ...
 ]
 ```
 
-### GET api/chirps/{chirp_id}
+### GET /api/chirps/{chirp_id}
+_Authentication: None_
 Returns chirp with specified ID
 
-Return:
+Response: `200 OK`
 ```json
 {
-    "id":"<chirp id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<updated timestamp>",
-    "body":"<chirp body>",
-    "user_id":"<user id>"
+    "id":"{chirp id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{updated timestamp}",
+    "body":"{chirp body}",
+    "user_id":"{user id}"
 }
 ```
 
 ### GET /api/chirps?author_id={user_id}&sort=asc
+_Authentication: None_
 Get chirps from specified user.
 
 Optional query parameters:
 - `sort=asc`
 - `sort=desc`
 
-Return:
+Return: `200 OK`
 ```json
 [
-    {"id":"<chirp id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<updated timestamp>",
-    "body":"<chirp body>",
-    "user_id":"<user id>"},
+    {"id":"{chirp id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{updated timestamp}",
+    "body":"{chirp body}",
+    "user_id":"{user id}"},
 
-    {"id":"<chirp id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<updated timestamp>",
-    "body":"<chirp body>",
-    "user_id":"<user id>"}
+    {"id":"{chirp id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{updated timestamp}",
+    "body":"{chirp body}",
+    "user_id":"{user id}"}
     
     ...
 ]
 ```
-### POST api/chirps
-Post new chirp. Authentication required via Bearer token.
+### POST /api/chirps
+_Authentication: Access Token_
+Post new chirp. 
 
-Request:
+Request: `201 Created`
 ```json
 {
-  "body": "Everyone is telling me I'll never win if I fall in love with a girl from Marin",
-  "user_id": "31a71526-8417-4f47-ac1a-98540448b1a2"
+  "body": "{chirp body}"
 }
 ```
 Response:
 ```json
 {
-    "id":"<chirp id>",
-    "created_at":"<created timestamp>",
-    "updated_at":"<updated timestamp>",
-    "body":"<chirp body>",
-    "user_id":"<user id>"
+    "id":"{chirp id}",
+    "created_at":"{created timestamp}",
+    "updated_at":"{updated timestamp}",
+    "body":"{chirp body}",
+    "user_id":"{user id}"
 }
 ```
 
 ### DELETE /api/chirps/{chirpID}
-Delete specified chirp. Authentication required via Bearer token.
+_Authentication: Access Token_
+Delete specified chirp. 
 
-Returns `204` with no body.
+Response: `204 No Content`
 
 ### POST /admin/reset/
+_Authentication: None_
 Reset database. Removes all users, chirps, and refresh tokens from their respective tables. Requires dev environment.
+
+Response: `200 OK`

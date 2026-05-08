@@ -82,10 +82,12 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		uid, err := uuid.Parse(author_id)
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, "Invalid user id: ", err)
+			return
 		}
 		resp, err = cfg.dbQueries.GetChirpsByAuthor(context.Background(), uid)
 		if err != nil {
 			respondWithError(w, http.StatusNotFound, "User ID not found: ", err)
+			return
 		}
 	} else {
 		resp, err = cfg.dbQueries.GetChirps(context.Background())
