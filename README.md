@@ -133,7 +133,8 @@ Response:
     "created_at":"<created timestamp>",
     "updated_at":"<last updated timestamp>",
     "email":"<email address>"
-}```
+}
+```
 
 ### POST /api/login
 
